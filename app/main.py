@@ -44,10 +44,18 @@ def _db():
     c = sqlite3.connect(DB)
     c.row_factory = sqlite3.Row
     c.execute("CREATE TABLE IF NOT EXISTS notebooks(id TEXT PRIMARY KEY, title TEXT, created TEXT)")
+    try:
+        c.execute("ALTER TABLE notebooks ADD COLUMN memory TEXT")
+    except Exception:
+        pass
     c.execute("CREATE TABLE IF NOT EXISTS sources(id TEXT PRIMARY KEY, notebook_id TEXT, name TEXT, kind TEXT, created TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS notes(id TEXT PRIMARY KEY, notebook_id TEXT, body TEXT, created TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY, notebook_id TEXT, kind TEXT, title TEXT, content TEXT, created TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY, notebook_id TEXT, role TEXT, content TEXT, citations TEXT, created TEXT)")
+    try:
+        c.execute("ALTER TABLE messages ADD COLUMN verification TEXT")
+    except Exception:
+        pass
     return c
 
 
@@ -359,32 +367,59 @@ def source_related(sid: str, query: str = ""):
 @app.post("/api/notebooks/{nb_id}/chat")
 def chat(nb_id: str, body: ChatIn):
     c = _db()
-    hits = rag.retrieve(nb_id, body.question)
+    nb = c.execute("SELECT memory FROM notebooks WHERE id=?", (nb_id,)).fetchone()
+    memory = (nb["memory"] or "").strip() if nb else ""
+    hits = rag.retrieve(nb_id, body.question, top_k=24)
     if not hits:
         raise HTTPException(404, "No sources in this notebook yet.")
     ctx = "\n\n".join(f"[{i+1}] ({h['name']})\n{h['text'][:1500]}" for i, h in enumerate(hits))
     notes = [r["body"] for r in c.execute("SELECT body FROM notes WHERE notebook_id=? ORDER BY created DESC LIMIT 10", (nb_id,)).fetchall()]
     notes_txt = "\n\n".join(f"- {n[:500]}" for n in notes)
-    prompt = (
-        "Answer using the numbered sources (and your saved notes where relevant). Cite every source "
-        "claim with its number in brackets like [1][3]. If sources lack the answer, say so.\n\n"
-        + (f"Your saved notes (use these as context too):\n{notes_txt}\n\n" if notes_txt else "")
+    draft_prompt = (
+        "You are assisting a self-represented litigant building a legal case. Answer the question by "
+        "deeply analysing ALL the numbered sources. Cite every factual claim with its source number in "
+        "brackets like [1][3]. Clearly distinguish (a) established facts, (b) the worker's allegations, "
+        "and (c) any formal findings. If sources conflict, point out the conflict. Do not speculate beyond "
+        "the sources.\n\n"
+        + (f"Your persistent memory for this case (carried from earlier conversations):\n{memory}\n\n" if memory else "")
+        + (f"Saved notes (context):\n{notes_txt}\n\n" if notes_txt else "")
         + f"Sources:\n{ctx}\n\nQuestion: {body.question}\n\nAnswer:"
     )
-    answer = _complete(prompt, 2000, 0.3)
+    answer = _complete(draft_prompt, 3000, 0.3)
+    fc_prompt = (
+        "Fact-check the answer below against the numbered sources. Report: (1) any claim NOT supported by "
+        "its cited source, (2) any contradiction between sources, (3) any material fact the answer omitted. "
+        "Then write a short 'Verification' note (2-4 sentences) stating whether the answer is fully supported "
+        "or flagging the specific issues.\n\n"
+        f"Sources:\n{ctx}\n\nAnswer to verify:\n{answer}\n\nVerification:"
+    )
+    verification = _complete(fc_prompt, 800, 0.2)
+    # update persistent memory
+    try:
+        mem_prompt = (
+            "You maintain a persistent memory for a legal case notebook. Given the existing memory and the "
+            "latest question + answer, write an updated concise memory (max 300 words) covering: established "
+            "facts, key evidence/documents, decisions or conclusions, and open questions. Output only the "
+            "memory text, no preamble.\n\n"
+            f"Existing memory:\n{memory or '(none)'}\n\nLatest Q: {body.question}\nLatest A: {answer[:1500]}\n\nUpdated memory:"
+        )
+        new_memory = _complete(mem_prompt, 700, 0.3)
+        c.execute("UPDATE notebooks SET memory=? WHERE id=?", (new_memory, nb_id))
+    except Exception:
+        pass
     citations = [{"number": i+1, "name": h["name"], "excerpt": h["text"][:220]} for i, h in enumerate(hits)]
-    c.execute("INSERT INTO messages VALUES (?,?,?,?,?,datetime('now'))", (uuid.uuid4().hex, nb_id, "user", body.question, None))
-    c.execute("INSERT INTO messages VALUES (?,?,?,?,?,datetime('now'))", (uuid.uuid4().hex, nb_id, "assistant", answer, json.dumps(citations)))
+    c.execute("INSERT INTO messages VALUES (?,?,?,?,?,datetime('now'),?)", (uuid.uuid4().hex, nb_id, "user", body.question, None, None))
+    c.execute("INSERT INTO messages VALUES (?,?,?,?,?,datetime('now'),?)", (uuid.uuid4().hex, nb_id, "assistant", answer, json.dumps(citations), verification))
     c.commit()
-    return {"answer": answer, "citations": citations}
+    return {"answer": answer, "citations": citations, "verification": verification}
 
 
 @app.get("/api/notebooks/{nb_id}/messages")
 def list_messages(nb_id: str):
     c = _db()
     out = []
-    for r in c.execute("SELECT role, content, citations, created FROM messages WHERE notebook_id=? ORDER BY created, rowid", (nb_id,)).fetchall():
-        out.append({"role": r["role"], "content": r["content"], "citations": json.loads(r["citations"]) if r["citations"] else None, "created": r["created"]})
+    for r in c.execute("SELECT role, content, citations, verification, created FROM messages WHERE notebook_id=? ORDER BY created, rowid", (nb_id,)).fetchall():
+        out.append({"role": r["role"], "content": r["content"], "citations": json.loads(r["citations"]) if r["citations"] else None, "verification": r["verification"], "created": r["created"]})
     return out
 
 
@@ -439,7 +474,7 @@ STUDIO = {
 }
 
 _PROMPTS = {
- "summary": "Write a clear multi-paragraph summary of the material.",
+ "summary": "Write a comprehensive multi-part summary of this workers' compensation case covering: the parties and claim numbers, the injuries and key medical opinions, the dispute and its history, financial and remittance issues, legal and complaint actions, and the current status/outcomes. Use document names where helpful.",
  "study_guide": "Create a study guide: key concepts, definitions, and 5 review questions.",
  "report": "Write a structured report: Title, Executive Summary, Key Findings, Analysis, Recommendations.",
  "slides": "Create a slide deck. Output each slide as '# <Slide Title>' followed by 3-5 short bullet '- ' lines, and separate slides with a line containing only '---'. 8-12 slides.",
@@ -451,11 +486,16 @@ _PROMPTS = {
 }
 
 
-def _corpus(nb_id, limit=12000):
-    srcs = rag.all_source_texts(nb_id)
-    if not srcs:
+def _corpus(nb_id, limit=30000, top_k=30):
+    n = _db().execute("SELECT COUNT(*) c FROM sources WHERE notebook_id=?", (nb_id,)).fetchone()["c"]
+    if n == 0:
         raise HTTPException(404, "No sources in this notebook yet.")
-    return "\n\n".join(f"### {s['name']}\n{s['text'][:6000]}" for s in srcs)[:limit]
+    q = ("Summarize the entire workers' compensation case: parties, claim numbers, injuries and medical "
+         "opinions, dispute history, financial and remittance issues, legal actions, complaints, forensic "
+         "findings, outcomes and chronology")
+    hits = rag.retrieve(nb_id, q, top_k=top_k)
+    body = "\n\n".join(f"[{i+1}] ({h['name']})\n{h['text'][:1400]}" for i, h in enumerate(hits))
+    return f"This notebook has {n} sources. Key excerpts across the case:\n\n{body}"[:limit]
 
 
 def _make_artifact(nb_id, kind):

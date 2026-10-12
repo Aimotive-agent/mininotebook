@@ -127,6 +127,14 @@
   .infocard b{color:var(--acc);font-size:16px}
   .noteitem{background:var(--card);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px;position:relative}
   .noteitem .x{position:absolute;top:6px;right:6px;color:var(--sub)}
+  .verify{border:1px solid #1f3a2b;background:#13231a;border-radius:10px;margin-top:10px}
+  .srcs{margin-top:8px;border-top:1px solid var(--line);padding-top:2px}
+  .srcs summary,.verify summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:4px;color:var(--sub);font-size:12.5px;font-weight:500;user-select:none}
+  .srcs summary::-webkit-details-marker,.verify summary::-webkit-details-marker{display:none}
+  .srcs summary .ms,.verify summary .ms{font-size:18px;transition:transform .15s}
+  details[open] summary .ms{transform:rotate(180deg)}
+  .verify summary{padding:9px 12px;color:#7bd88f}
+  .verify>span{display:block;padding:0 12px 10px;color:#c9e8d2;font-size:12.5px;line-height:1.55}
   .hidden{display:none!important}
   .empty{color:var(--sub);font-size:12.5px;padding:6px 10px}
 </style>
@@ -381,10 +389,13 @@ async function viewSource(id){
 
 /* ---------- chat ---------- */
 function addUser(q){$("msgs").insertAdjacentHTML("beforeend",`<div class="u"><div class="b">${esc(q)}</div></div>`);}
-function renderAssistant(tid,answer,citations){
+function renderAssistant(tid,answer,citations,verification){
   const html=md(answer).replace(/\[(\d+)\]/g,(m,n)=>`<sup onclick="jumpcite('${tid}-${n}')">[${n}]</sup>`);
   const cites=(citations||[]).filter(c=>answer.includes(`[${c.number}]`));
-  return `<div class="a"><div class="b">${html}</div>`+cites.map(c=>`<span class="cite" id="${tid}-${c.number}"><b>[${c.number}]</b> ${esc(c.name)} — <i>${esc(c.excerpt)}</i></span>`).join("")+`</div>`;
+  const srcs=cites.length?`<details class="srcs" id="${tid}-srcs"><summary>${ms("expand_more")} Sources (${cites.length})</summary>`+
+    cites.map(c=>`<span class="cite" id="${tid}-${c.number}"><b>[${c.number}]</b> ${esc(c.name)} — <i>${esc(c.excerpt)}</i></span>`).join("")+`</details>`:"";
+  const v=verification?`<details class="verify"><summary>${ms("verified")} Fact-check report</summary><span>${md(verification)}</span></details>`:"";
+  return `<div class="a"><div class="b">${html}</div>${srcs}${v}</div>`;
 }
 async function chat(){
   const q=$("q").value.trim();if(!q)return;$("q").value="";LAST_Q=q;
@@ -394,12 +405,12 @@ async function chat(){
   $("msgs").parentElement.scrollTop=1e9;
   try{
     const d=await j(`/api/notebooks/${CUR}/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:q})});
-    $(tid).innerHTML=renderAssistant(tid,d.answer,d.citations)+`<div class="acts"><button onclick="saveAnswer('${tid}')">${ms("note_add")} Save to note</button></div>`;
+    $(tid).innerHTML=renderAssistant(tid,d.answer,d.citations,d.verification)+`<div class="acts"><button onclick="saveAnswer('${tid}')">${ms("note_add")} Save to note</button></div>`;
     window["_ans"+tid]=d.answer;
     $("msgs").parentElement.scrollTop=1e9;
   }catch(e){$(tid).innerHTML=`<div class="b" style="color:var(--red)">${esc(e.message)}</div>`;}
 }
-function jumpcite(id){$(id)?.scrollIntoView({behavior:"smooth",block:"center"});}
+function jumpcite(id){const el=$(id);if(!el)return;const det=el.closest("details");if(det&&!det.open)det.open=true;setTimeout(()=>el.scrollIntoView({behavior:"smooth",block:"center"}),30);}
 async function saveAnswer(tid){await j(`/api/notebooks/${CUR}/notes`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({body:window["_ans"+tid]})});refreshNotes();}
 async function loadChat(){
   let msgs=[];
@@ -408,7 +419,7 @@ async function loadChat(){
     $("msgs").innerHTML="";
     msgs.forEach((m,i)=>{
       if(m.role==="user")addUser(m.content);
-      else $("msgs").insertAdjacentHTML("beforeend",renderAssistant("h"+i,m.content,m.citations));
+      else $("msgs").insertAdjacentHTML("beforeend",renderAssistant("h"+i,m.content,m.citations,m.verification));
     });
     $("msgs").parentElement.scrollTop=1e9;
   } else welcome();

@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MiniNotebook</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#0B0B0F; --header:#0E0E12; --panel:#1B1B1F; --center:#131316; --card:#2A2A2F;
+    --input:#202124; --txt:#E8EAED; --sub:#9AA0A6; --mut:#5F6368; --acc:#8AB4F8;
+    --line:#2b2b30; --red:#F28B82;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:14px;overflow:hidden}
+  .ms{font-family:"Material Symbols Outlined";font-weight:400;font-style:normal;font-size:20px;line-height:1;letter-spacing:normal;display:inline-block;font-variation-settings:'opsz' 24;vertical-align:middle;user-select:none}
+  button{font:inherit;cursor:pointer;color:var(--txt);background:transparent;border:none;border-radius:999px;padding:8px 14px;display:inline-flex;align-items:center;gap:6px}
+  button:hover{background:#ffffff12}
+  button.primary{background:var(--acc);color:#06234f;font-weight:600}
+  button.primary:hover{background:#a6c6ff}
+  button.tonal{background:var(--card)}
+  input,textarea{font:inherit;background:var(--input);color:var(--txt);border:1px solid transparent;border-radius:10px;padding:9px 12px;width:100%;outline:none}
+  input:focus,textarea:focus{border-color:#3b4a63}
+  textarea{resize:vertical}
+  ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#333;border-radius:8px}
+  .app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+  header{display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--header);border-bottom:1px solid var(--line);flex-shrink:0}
+  header .brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;white-space:nowrap}
+  header .brand .ms{color:var(--acc)}
+  header .titlewrap{display:flex;align-items:center;gap:10px;min-width:0}
+  header .nb-title{font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  header .badge{font-size:11px;color:var(--sub);border:1px solid var(--line);border-radius:999px;padding:2px 9px}
+  header .spacer{flex:1}
+  .iconbtn{padding:8px;border-radius:999px}
+
+  /* HOME */
+  .home{flex:1;min-height:0;overflow-y:auto;padding:34px 40px}
+  .home h1{font-size:26px;font-weight:600;margin:0 0 6px}
+  .home .lead{color:var(--sub);margin-bottom:26px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+  .nbcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;cursor:pointer;transition:.15s}
+  .nbcard:hover{border-color:#3b4a63;transform:translateY(-1px)}
+  .nbcard h3{margin:0 0 10px;font-size:16px;font-weight:600}
+  .nbcard .meta{color:var(--sub);font-size:12px;display:flex;align-items:center;gap:6px}
+  .newcard{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;border:1px dashed #3a3a40;color:var(--acc)}
+  .newcard .ms{font-size:30px}
+  .home-search{display:flex;align-items:center;gap:8px;background:var(--input);border-radius:999px;padding:8px 16px;max-width:520px;margin-bottom:26px}
+  .home-search input{background:none;padding:0}
+
+  /* NOTEBOOK 3-PANE */
+  .cols{display:grid;grid-template-columns:290px minmax(0,1fr) 330px;flex:1;min-height:0;overflow:hidden}
+  .pane{background:var(--panel);overflow-y:auto;display:flex;flex-direction:column}
+  .pane.left{border-right:1px solid var(--line)}
+  .pane.right{border-left:1px solid var(--line)}
+  .center{background:var(--center);display:flex;flex-direction:column;min-width:0;min-height:0}
+  .phead{display:flex;align-items:center;gap:6px;padding:14px 16px 8px;font-size:13px;font-weight:600;color:var(--sub)}
+  .phead .spacer{flex:1}
+  .pbody{padding:0 12px 16px}
+
+  .src{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer}
+  .src:hover{background:#ffffff0d}
+  .src .ico{color:var(--acc);font-size:18px}
+  .src .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px}
+  .src .x{opacity:0;font-size:16px;color:var(--sub)}
+  .src:hover .x{opacity:1}
+  .addbox{background:var(--card);border-radius:12px;padding:12px;margin:6px 0 12px}
+  .tabs{display:flex;gap:6px;margin-bottom:10px}
+  .tabs button{flex:1;padding:7px;border-radius:8px;font-size:12.5px;border:1px solid var(--line)}
+  .tabs button.on{background:var(--acc);color:#06234f;border-color:transparent;font-weight:600}
+  .msg{font-size:12.5px;margin-top:8px}
+  .msg.err{color:var(--red)} .msg.ok{color:#7bd88f}
+
+  .chat-scroll{flex:1;overflow-y:auto;min-height:0;padding:26px 32px}
+  .chat-inner{max-width:760px;margin:0 auto}
+  .welcome{text-align:center;color:var(--sub);margin:40px 0 20px}
+  .welcome .big{font-size:22px;color:var(--txt);font-weight:600;margin-bottom:6px}
+  .sug{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:18px}
+  .sug button{background:var(--panel);border:1px solid var(--line);font-size:12.5px}
+  .u{display:flex;justify-content:flex-end;margin:14px 0}
+  .u .b{background:var(--acc);color:#06234f;padding:10px 14px;border-radius:16px 16px 4px 16px;max-width:75%}
+  .a{margin:14px 0;line-height:1.6}
+  .a .b{background:var(--card);padding:14px 16px;border-radius:16px 16px 16px 4px}
+  .a sup{color:var(--acc);cursor:pointer;font-weight:700;padding:0 2px}
+  .cite{display:block;font-size:12px;color:var(--sub);border-left:2px solid var(--acc);padding:6px 10px;margin:8px 0;background:#ffffff08;border-radius:0 8px 8px 0}
+  .cite b{color:var(--acc)}
+  .acts{display:flex;gap:4px;margin-top:8px}
+  .chat-bar{padding:12px 20px 8px;border-top:1px solid var(--line);background:var(--center);flex-shrink:0}
+  .bar{max-width:760px;margin:0 auto;background:var(--input);border-radius:26px;display:flex;align-items:flex-end;gap:8px;padding:8px 8px 8px 18px}
+  .bar textarea{background:none;border:none;padding:8px 0;max-height:140px}
+  .bar .left{color:var(--sub);font-size:12px;padding-bottom:10px}
+  .send{background:var(--acc);color:#06234f;border-radius:50%;width:38px;height:38px;padding:0;display:grid;place-items:center}
+  .disclaimer{color:var(--mut);font-size:11px;text-align:center;margin:8px 0 2px}
+
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px;display:flex;align-items:center;gap:9px;font-size:12.5px;text-align:left;font-weight:500}
+  .tile:hover{background:#33333a}
+  .tile .ms{color:var(--acc);font-size:19px}
+  .tile.loading{opacity:.6;pointer-events:none}
+  .tag{font-size:10px;background:var(--acc);color:#06234f;border-radius:6px;padding:1px 5px;font-weight:700}
+  .art{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer}
+  .art:hover{background:#ffffff0d}
+  .art .ico{color:var(--acc)}
+  .art .t{flex:1;min-width:0}
+  .art .t .n{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .art .t .s{font-size:11px;color:var(--sub)}
+  .art .x{opacity:0;color:var(--sub)}
+  .art:hover .x{opacity:1}
+
+  /* MODAL */
+  .overlay{position:fixed;inset:0;background:#000000aa;display:none;place-items:center;z-index:50;padding:40px}
+  .overlay.on{display:grid}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;max-width:900px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+  .modal .mh{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+  .modal .mh .ms{color:var(--acc)}
+  .modal .mh .spacer{flex:1}
+  .modal .mc{overflow-y:auto;padding:20px 24px;line-height:1.65}
+  .modal .mf{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--line)}
+  .md h1,.md h2,.md h3{margin:14px 0 8px} .md p{margin:8px 0} .md ul{margin:8px 0 8px 18px;padding:0}
+  .md blockquote{border-left:3px solid var(--mut);margin:10px 0;padding:4px 14px;color:var(--sub)}
+  .md table{border-collapse:collapse;width:100%;margin:10px 0} .md td,.md th{border:1px solid var(--line);padding:6px 10px;text-align:left}
+  .slide{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:10px 0}
+  .slide h3{margin:0 0 8px;color:var(--acc)}
+  .infocard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:8px 0}
+  .infocard b{color:var(--acc);font-size:16px}
+  .noteitem{background:var(--card);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px;position:relative}
+  .noteitem .x{position:absolute;top:6px;right:6px;color:var(--sub)}
+  .hidden{display:none!important}
+  .empty{color:var(--sub);font-size:12.5px;padding:6px 10px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><span class="ms">auto_awesome</span> MiniNotebook</div>
+    <div class="titlewrap">
+      <button class="iconbtn" id="backBtn" style="display:none" onclick="goHome()"><span class="ms">arrow_back</span></button>
+      <span class="nb-title" id="hdrTitle"></span>
+      <span class="badge" id="hdrBadge" style="display:none"></span>
+    </div>
+    <div class="spacer"></div>
+    <button id="renameBtn" class="iconbtn" style="display:none" onclick="renameNb()" title="Rename"><span class="ms">edit</span></button>
+    <button id="delBtn" class="iconbtn" style="display:none" onclick="delNb()" title="Delete"><span class="ms">delete</span></button>
+    <button id="newBtn" class="tonal" onclick="createNb()"><span class="ms">add</span> Create notebook</button>
+  </header>
+
+  <!-- HOME -->
+  <div id="home" class="home">
+    <h1>My notebooks</h1>
+    <div class="lead">Grounded AI notebooks — upload sources, ask questions, create studio artifacts.</div>
+    <div class="home-search"><span class="ms">search</span><input id="search" placeholder="Search notebooks" oninput="renderHome()"></div>
+    <div class="grid"><div class="nbcard newcard" onclick="createNb()"><span class="ms">add</span><div>New notebook</div></div><div id="grid" style="display:contents"></div></div>
+  </div>
+
+  <!-- NOTEBOOK -->
+  <div id="nb" class="cols hidden">
+    <!-- LEFT: sources -->
+    <div class="pane left">
+      <div class="phead">Sources <span class="spacer"></span><button class="iconbtn" onclick="toggleAdd()" title="Add source"><span class="ms">add</span></button></div>
+      <div class="pbody">
+        <div class="addbox hidden" id="addbox">
+          <div class="tabs">
+            <button class="on" id="t-file" onclick="tab('file')">Upload</button>
+            <button id="t-link" onclick="tab('link')">Link</button>
+            <button id="t-text" onclick="tab('text')">Paste</button>
+          </div>
+          <div id="tab-file"><input type="file" id="file" multiple><div class="msg" style="color:var(--sub)">PDF · DOCX · PPTX · EPUB · RTF · MD · TXT</div></div>
+          <div id="tab-link" class="hidden"><input id="url" placeholder="https://… (website or YouTube)"></div>
+          <div id="tab-text" class="hidden"><input id="ptitle" placeholder="Title" style="margin-bottom:6px"><textarea id="ptext" rows="3" placeholder="Paste text…"></textarea></div>
+          <button class="primary" style="width:100%;margin-top:10px;justify-content:center" onclick="addSource()">Add source</button>
+          <div id="srcMsg" class="msg"></div>
+        </div>
+        <div id="srcList"></div>
+      </div>
+    </div>
+
+    <!-- CENTER: chat -->
+    <div class="center">
+      <div class="chat-scroll"><div class="chat-inner" id="msgs"></div></div>
+      <div class="chat-bar">
+        <div class="bar">
+          <textarea id="q" rows="1" placeholder="Ask a question or create something"></textarea>
+          <span class="left" id="srcCount">0 sources</span>
+          <button class="send" onclick="chat()"><span class="ms">arrow_upward</span></button>
+        </div>
+        <div class="disclaimer">MiniNotebook can make mistakes, so double-check it.</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: studio + notes -->
+    <div class="pane right">
+      <div class="phead">Studio</div>
+      <div class="tiles" id="tiles"></div>
+      <div class="phead" style="margin-top:6px">Artifacts</div>
+      <div class="pbody" id="artList"></div>
+      <div class="phead">Notes <span class="spacer"></span><button class="iconbtn" onclick="toggleNote()"><span class="ms">add</span></button></div>
+      <div class="pbody">
+        <div class="addbox hidden" id="notebox"><textarea id="newnote" rows="3" placeholder="Write a note…"></textarea>
+          <button class="primary" style="width:100%;margin-top:8px;justify-content:center" onclick="addNote()">Save note</button></div>
+        <div id="notes"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VIEWER -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeDoc()">
+  <div class="modal">
+    <div class="mh"><span class="ms" id="mIco">description</span><b id="mTitle">Artifact</b><span class="spacer"></span>
+      <button class="iconbtn" onclick="closeDoc()"><span class="ms">close</span></button></div>
+    <div class="mc md" id="mBody"></div>
+    <div class="mf" id="mFoot"><button class="tonal" onclick="saveDocAsNote()"><span class="ms">note_add</span> Save to note</button>
+      <span class="spacer" style="flex:1"></span>
+      <button class="tonal" onclick="delDoc()" style="color:var(--red)"><span class="ms">delete</span> Delete</button></div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ms=n=>`<span class="ms">${n}</span>`;
+async function j(u,o){const r=await fetch(u,o);const t=await r.text();if(!r.ok)throw new Error((t||"").slice(0,300));return t?JSON.parse(t):{};}
+let CUR=null,CUR_TAB="file",NB_TITLE="",DOC=null,SRC_N=0,LAST_Q="",NOTES=[];
+
+const TILES=[["summary","Summary","summarize"],["study_guide","Study Guide","school"],["audio","Audio Overview","podcasts"],["slides","Slide Deck","slideshow"],["video","Video Overview","movie"],
+["mindmap","Mind Map","account_tree"],["report","Report","description"],["flashcards","Flashcards","style"],
+["quiz","Quiz","quiz"],["infographic","Infographic","insights"],["datatable","Data Table","table_chart"]];
+
+/* ---------- markdown ---------- */
+function md(s){
+  const L=esc(s).split("\n"); let h="",inTbl=false;
+  for(let i=0;i<L.length;i++){
+    let l=L[i];
+    if(/^\|(.+)\|\s*$/.test(l)){
+      const cells=l.split("|").slice(1,-1).map(c=>c.trim());
+      if(!inTbl){h+='<table>';inTbl=true;}
+      if(cells.every(c=>/^-+$/.test(c)))continue;
+      h+="<tr>"+cells.map(c=>"<td>"+c+"</td>").join("")+"</tr>";continue;
+    } else if(inTbl){h+="</table>";inTbl=false;}
+    l=l.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");
+    if(/^### /.test(l))h+="<h3>"+l.slice(4)+"</h3>";
+    else if(/^## /.test(l))h+="<h2>"+l.slice(3)+"</h2>";
+    else if(/^# /.test(l))h+="<h1>"+l.slice(2)+"</h1>";
+    else if(/^> /.test(l))h+="<blockquote>"+l.slice(2)+"</blockquote>";
+    else if(/^\s*[-*] /.test(l)){const ind=(l.match(/^\s*/)[0].length);h+=`<div style="margin-left:${ind*6+14}px">• ${l.replace(/^\s*[-*] /,"")}</div>`;}
+    else if(l.trim()==="")h+="";
+    else h+="<p>"+l+"</p>";
+  }
+  if(inTbl)h+="</table>";
+  return h;
+}
+function renderKind(content,kind){
+  if(kind==="audio")return `<audio controls style="width:100%" src="${content}"></audio>`;
+  if(kind==="video")return `<video controls style="width:100%;border-radius:12px" src="${content}"></video>`;
+  if(kind==="slides"){
+    return content.split(/\n?-{3,}\n?/).map(sl=>{
+      const lines=sl.trim().split("\n");const t=(lines.shift()||"").replace(/^#\s*/,"");const body=lines.map(x=>x.replace(/^\s*[-*] /,"• ")).join("<br>");
+      return `<div class="slide"><h3>${esc(t)}</h3><div>${body}</div></div>`;}).join("");
+  }
+  if(kind==="infographic"){
+    return content.split("\n").filter(Boolean).map(l=>{
+      if(/^# /.test(l))return `<h1>${l.slice(2)}</h1>`;
+      const m=l.match(/^\s*[-*] \*\*(.+?)\*\*\s*[—-]\s*(.*)$/);
+      if(m)return `<div class="infocard"><b>${m[1]}</b><div style="color:var(--sub)">${m[2]}</div></div>`;
+      return md(l);}).join("");
+  }
+  return md(content);
+}
+
+/* ---------- home ---------- */
+let NBS=[];
+async function loadHome(){
+  CUR=null;$("home").classList.remove("hidden");$("nb").classList.add("hidden");
+  $("backBtn").style.display=$("renameBtn").style.display=$("delBtn").style.display="none";
+  $("hdrTitle").textContent="";$("hdrBadge").style.display="none";
+  NBS=await j("/api/notebooks");renderHome();
+}
+function renderHome(){
+  const q=($("search").value||"").toLowerCase();
+  $("grid").innerHTML=NBS.filter(n=>n.title.toLowerCase().includes(q)).map(n=>`
+    <div class="nbcard" onclick="openNb('${n.id}')"><h3>${esc(n.title)}</h3>
+    <div class="meta">${ms("description")} ${n.sources} sources · ${n.artifacts} artifacts</div></div>`).join("");
+}
+async function createNb(){const t=prompt("Notebook title:")||"Untitled";await j("/api/notebooks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:t})});loadHome();}
+function goHome(){loadHome();}
+
+/* ---------- notebook ---------- */
+async function openNb(id){
+  CUR=id;$("home").classList.add("hidden");$("nb").classList.remove("hidden");
+  $("backBtn").style.display=$("renameBtn").style.display=$("delBtn").style.display="inline-flex";
+  const n=NBS.find(x=>x.id===id)||(await j("/api/notebooks")).find(x=>x.id===id);
+  NB_TITLE=n.title;$("hdrTitle").textContent=n.title;$("hdrBadge").style.display="inline";$("hdrBadge").textContent="Local";
+  renderTiles();refreshSources();refreshArtifacts();refreshNotes();loadChat();
+}
+async function renameNb(){const t=prompt("Rename:",NB_TITLE);if(!t)return;await j(`/api/notebooks/${CUR}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:t})});NB_TITLE=t;$("hdrTitle").textContent=t;}
+async function delNb(){if(!confirm("Delete this notebook?"))return;await j(`/api/notebooks/${CUR}`,{method:"DELETE"});loadHome();}
+function welcome(){
+  $("msgs").innerHTML=`<div class="welcome"><div class="big">Ask about your sources</div>
+    <div>Everything you upload is grounded, cited, and stays on your machine.</div><div class="sug" id="sug"></div></div>`;
+  suggest();
+}
+async function suggest(){try{const d=await j(`/api/notebooks/${CUR}/suggestions`,{method:"POST"});$("sug").innerHTML=d.questions.map(q=>`<button onclick="askq(\`${q.replace(/`/g,"")}\`)">${esc(q)}</button>`).join("");}catch(e){}}
+function askq(q){$("q").value=q;chat();}
+
+/* ---------- sources ---------- */
+function toggleAdd(){$("addbox").classList.toggle("hidden");}
+function tab(t){CUR_TAB=t;["file","link","text"].forEach(x=>{$("tab-"+x).classList.toggle("hidden",x!==t);$("t-"+x).classList.toggle("on",x===t);});}
+async function addSource(){
+  $("srcMsg").textContent="";$("srcMsg").className="msg";
+  if(CUR_TAB==="file"){
+    const fs=[...$("file").files];
+    if(!fs.length){$("srcMsg").className="msg err";$("srcMsg").textContent="Choose one or more files.";return;}
+    let ok=0,fail=0;const errs=[];
+    for(let i=0;i<fs.length;i++){
+      $("srcMsg").className="msg";$("srcMsg").textContent=`Adding ${i+1}/${fs.length}: ${fs[i].name}…`;
+      try{const fd=new FormData();fd.append("file",fs[i]);await j(`/api/notebooks/${CUR}/sources`,{method:"POST",body:fd});ok++;}
+      catch(e){fail++;if(errs.length<4)errs.push(fs[i].name+": "+e.message);}
+    }
+    $("file").value="";
+    $("srcMsg").className="msg "+(fail?"err":"ok");
+    $("srcMsg").textContent=`Added ${ok} source${ok===1?"":"s"}`+(fail?` (${fail} failed)`:"");
+    if(errs.length)$("srcMsg").textContent+=` — ${errs.join(" · ")}`;
+    refreshSources();suggest();return;
+  }
+  try{
+    if(CUR_TAB==="link"){
+      const u=$("url").value.trim();if(!u)throw new Error("Paste a URL.");
+      await j(`/api/notebooks/${CUR}/sources?url=${encodeURIComponent(u)}`,{method:"POST"});$("url").value="";
+    }else{
+      const t=$("ptitle").value.trim()||"Pasted text";
+      const x=$("ptext").value.trim();if(!x)throw new Error("Paste some text.");
+      await j(`/api/notebooks/${CUR}/sources/text`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:t,text:x})});
+      $("ptitle").value="";$("ptext").value="";
+    }
+    $("srcMsg").className="msg ok";$("srcMsg").textContent="Added ✓";refreshSources();suggest();
+  }catch(e){$("srcMsg").className="msg err";$("srcMsg").textContent=e.message;}
+}
+async function refreshSources(){
+  const s=await j(`/api/notebooks/${CUR}/sources`);SRC_N=s.length;$("srcCount").textContent=s.length+" sources";
+  $("srcList").innerHTML=s.length?s.map(x=>`<div class="src" onclick="viewSource('${x.id}')">
+    ${ms(x.kind==="url"?"link":x.kind==="text"?"subject":"description")}<span class="nm" title="${esc(x.name)}">${esc(x.name)}</span>
+    <span class="ms x" onclick="event.stopPropagation();delSource('${x.id}')">close</span></div>`).join(""):`<div class="empty">No sources yet — add one above.</div>`;
+}
+async function delSource(id){await j(`/api/notebooks/${CUR}/sources/${id}`,{method:"DELETE"});refreshSources();}
+async function viewSource(id){
+  DOC=null;openOverlay();$("mFoot").style.display="flex";
+  $("mIco").textContent="description";$("mTitle").textContent="Loading source…";
+  $("mBody").innerHTML=`<div class="empty">Loading…</div>`;
+  let name=id,text="";
+  try{
+    const t=await j(`/api/sources/${id}/text`);
+    name=t.name;text=t.text||"";$("mTitle").textContent=name;
+    const nm=(name||"").toLowerCase();
+    const isPdf=/\.pdf$/.test(nm), isImg=/\.(png|jpe?g|gif|webp|bmp|tiff?)$/.test(nm);
+    let html=`<div id="sumSec" style="margin-bottom:14px"><div class="empty">Summarizing…</div></div>`;
+    if(isPdf) html+=`<div style="height:70vh"><iframe src="/api/sources/${id}/file" style="width:100%;height:100%;border:none;border-radius:8px"></iframe></div>`;
+    else if(isImg) html+=`<img src="/api/sources/${id}/file" style="max-width:100%;border-radius:8px">`;
+    else if(text) html+=`<div style="white-space:pre-wrap;background:var(--card);border-radius:10px;padding:16px;max-height:55vh;overflow:auto">${esc(text)}</div>`;
+    else html+=`<div class="empty">No file preview (URL or pasted source).</div>`;
+    html+=`<div id="relSec"></div>`;
+    $("mBody").innerHTML=html;
+    DOC={title:name,content:text||name};
+    j(`/api/sources/${id}/summary`).then(s=>{
+      $("sumSec").innerHTML=`<b style="color:var(--acc)">Summary</b><div>${md(s.summary)}</div>`;
+    }).catch(()=>{ $("sumSec").innerHTML=`<div class="empty" style="color:var(--red)">Summary unavailable — try again.</div>`; });
+    if(LAST_Q){
+      j(`/api/sources/${id}/related?query=${encodeURIComponent(LAST_Q)}`).then(r=>{
+        if(r.matches&&r.matches.length){
+          $("relSec").innerHTML=`<div style="margin-bottom:14px"><b style="color:var(--acc)">Matches your chat — "${esc(LAST_Q)}"</b>`+
+            r.matches.map(m=>`<div class="infocard"><div style="color:var(--sub)">${esc(m.why)}</div><div style="margin-top:6px;font-size:12.5px">${esc(m.excerpt)}</div></div>`).join("")+`</div>`;
+        }
+      }).catch(()=>{});
+    }
+  }catch(e){
+    $("mTitle").textContent="Source";
+    $("mBody").innerHTML=`<div class="empty" style="color:var(--red)">Could not load source: ${esc(e.message)}</div>`;
+  }
+}
+
+/* ---------- chat ---------- */
+function addUser(q){$("msgs").insertAdjacentHTML("beforeend",`<div class="u"><div class="b">${esc(q)}</div></div>`);}
+function renderAssistant(tid,answer,citations){
+  const html=md(answer).replace(/\[(\d+)\]/g,(m,n)=>`<sup onclick="jumpcite('${tid}-${n}')">[${n}]</sup>`);
+  const cites=(citations||[]).filter(c=>answer.includes(`[${c.number}]`));
+  return `<div class="a"><div class="b">${html}</div>`+cites.map(c=>`<span class="cite" id="${tid}-${c.number}"><b>[${c.number}]</b> ${esc(c.name)} — <i>${esc(c.excerpt)}</i></span>`).join("")+`</div>`;
+}
+async function chat(){
+  const q=$("q").value.trim();if(!q)return;$("q").value="";LAST_Q=q;
+  if($("sug"))$("sug").innerHTML="";
+  addUser(q);const tid="t"+Date.now();
+  $("msgs").insertAdjacentHTML("beforeend",`<div class="a" id="${tid}"><div class="b" style="color:var(--sub)">Thinking…</div></div>`);
+  $("msgs").parentElement.scrollTop=1e9;
+  try{
+    const d=await j(`/api/notebooks/${CUR}/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:q})});
+    $(tid).innerHTML=renderAssistant(tid,d.answer,d.citations)+`<div class="acts"><button onclick="saveAnswer('${tid}')">${ms("note_add")} Save to note</button></div>`;
+    window["_ans"+tid]=d.answer;
+    $("msgs").parentElement.scrollTop=1e9;
+  }catch(e){$(tid).innerHTML=`<div class="b" style="color:var(--red)">${esc(e.message)}</div>`;}
+}
+function jumpcite(id){$(id)?.scrollIntoView({behavior:"smooth",block:"center"});}
+async function saveAnswer(tid){await j(`/api/notebooks/${CUR}/notes`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({body:window["_ans"+tid]})});refreshNotes();}
+async function loadChat(){
+  let msgs=[];
+  try{msgs=await j(`/api/notebooks/${CUR}/messages`);}catch(e){}
+  if(msgs&&msgs.length){
+    $("msgs").innerHTML="";
+    msgs.forEach((m,i)=>{
+      if(m.role==="user")addUser(m.content);
+      else $("msgs").insertAdjacentHTML("beforeend",renderAssistant("h"+i,m.content,m.citations));
+    });
+    $("msgs").parentElement.scrollTop=1e9;
+  } else welcome();
+}
+
+/* ---------- studio ---------- */
+function renderTiles(){
+  $("tiles").innerHTML=TILES.map(([k,label,ico])=>`<button class="tile" id="tile-${k}" onclick="studio('${k}')">${ms(ico)}<span>${label}</span>${k==="report"?'<span class="tag">New</span>':""}</button>`).join("");
+}
+async function studio(k){
+  const t=$("tile-"+k);t.classList.add("loading");
+  try{await j(`/api/notebooks/${CUR}/studio`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:k})});refreshArtifacts();}
+  catch(e){alert("Generation failed: "+e.message);}
+  finally{t.classList.remove("loading");}
+}
+async function refreshArtifacts(){
+  const a=await j(`/api/notebooks/${CUR}/documents`);
+  $("artList").innerHTML=a.length?a.map(x=>`<div class="art" onclick="openDoc('${x.id}')">
+    ${ms(x.icon)}<div class="t"><div class="n">${esc(x.title)}</div><div class="s">${x.sources} sources · ${esc(x.created||"")}</div></div>
+    <span class="ms x" onclick="event.stopPropagation();delDocId('${x.id}')">delete</span></div>`).join(""):`<div class="empty">Nothing generated yet.</div>`;
+}
+
+/* ---------- notes ---------- */
+function toggleNote(){$("notebox").classList.toggle("hidden");}
+async function refreshNotes(){
+  NOTES=await j(`/api/notebooks/${CUR}/notes`);
+  $("notes").innerHTML=NOTES.length?NOTES.map(x=>{
+    const b=x.body||"";const preview=b.length>150?b.slice(0,150)+"…":b;
+    return `<div class="noteitem" onclick="openNote('${x.id}')" style="cursor:pointer">
+      <div style="color:var(--sub);font-size:12.5px;line-height:1.5;white-space:pre-wrap">${esc(preview)}</div>
+      <div class="muted" style="font-size:11px">Click to open full note</div>
+      <span class="ms x" onclick="event.stopPropagation();delNote('${x.id}')">close</span></div>`;
+  }).join(""):`<div class="empty">No notes.</div>`;
+}
+async function openNote(id){
+  const n=NOTES.find(x=>x.id===id);if(!n)return;
+  $("mIco").textContent="note";$("mTitle").textContent="Note";
+  $("mBody").innerHTML=`<div style="white-space:pre-wrap;line-height:1.6">${md(n.body)}</div>`;
+  $("mFoot").style.display="none";DOC=null;openOverlay();
+}
+async function addNote(){const b=$("newnote").value.trim();if(!b)return;await j(`/api/notebooks/${CUR}/notes`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({body:b})});$("newnote").value="";refreshNotes();}
+async function delNote(id){await j(`/api/notebooks/${CUR}/notes/${id}`,{method:"DELETE"});refreshNotes();}
+
+/* ---------- viewer ---------- */
+function openOverlay(){$("overlay").classList.add("on");}
+function closeDoc(){$("overlay").classList.remove("on");DOC=null;}
+async function openDoc(id){
+  const d=await j(`/api/documents/${id}`);DOC=d;
+  $("mFoot").style.display="flex";
+  $("mIco").textContent=d.icon;$("mTitle").textContent=d.title;$("mBody").innerHTML=renderKind(d.content,d.kind);openOverlay();
+}
+async function saveDocAsNote(){if(!DOC)return;const body=(DOC.kind&&["audio","video"].includes(DOC.kind))?`${DOC.title}: ${DOC.content}`:(DOC.title?""+DOC.title+"\n\n":"")+DOC.content;await j(`/api/notebooks/${CUR}/notes`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({body})});refreshNotes();alert("Saved to notes");}
+async function delDoc(){if(DOC&&DOC.id){await j(`/api/documents/${DOC.id}`,{method:"DELETE"});}closeDoc();refreshArtifacts();}
+async function delDocId(id){await j(`/api/documents/${id}`,{method:"DELETE"});refreshArtifacts();}
+
+loadHome();
+</script>
+</body>
+</html>

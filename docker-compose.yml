@@ -1,0 +1,19 @@
+name: mininotebook
+
+services:
+  mininotebook:
+    build: ./app
+    container_name: mininotebook
+    restart: unless-stopped
+    ports:
+      - "8095:8000"
+    volumes:
+      - ./data:/data
+    environment:
+      - DATA_DIR=/data
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - EMBED_MODEL=${EMBED_MODEL:-embeddinggemma:latest}
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
